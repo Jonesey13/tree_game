@@ -1,5 +1,5 @@
 use na::{Vector2, Matrix2, Vector4, Rotation2};
-use gg::rendering::{BezierQuadControl, BezierRect};
+use gg::rendering::{BezierQuadControl, BezierRect, BezierLogic};
 use gg::geometry::bezier_2d::BezierQuad;
 use gg::geometry::bezier_patch::BezierPatch;
 use gg::debug::*;
@@ -53,13 +53,22 @@ impl TreeBranch {
     pub fn get_visual(&self) -> VisualSpec {
         self.visual.clone()
     }
+
+    pub fn get_logical(&self) -> LogicalSpec {
+        self.logical.clone()
+    }
+
+    pub fn get_id(&self) -> u64 {
+        self.id.clone()
+    }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct LogicalSpec {
     left_width: f64,
     right_width: f64,
-    left_length: f64,
-    right_length: f64
+    length_left: f64,
+    length_right: f64
 }
 
 impl LogicalSpec {
@@ -67,8 +76,8 @@ impl LogicalSpec {
         LogicalSpec {
             left_width: vert_fill,
             right_width: vert_fill,
-            left_length: hori_fill / 2.0,
-            right_length: hori_fill / 2.0
+            length_left: hori_fill / 2.0,
+            length_right: hori_fill / 2.0
         }
     }
 
@@ -76,8 +85,19 @@ impl LogicalSpec {
         LogicalSpec {
             left_width: vert_fill / 2.0,
             right_width: vert_fill,
-            left_length: hori_fill / 2.0,
-            right_length: hori_fill * (1.0 - 1.0 / hori_fill) / 2.0 ,
+            length_left: hori_fill / 2.0,
+            length_right: hori_fill * (1.0 - 1.0 / hori_fill) / 2.0 ,
+        }
+    }
+}
+
+impl From<LogicalSpec> for BezierLogic {
+    fn from (spec: LogicalSpec) -> Self {
+        BezierLogic {
+            length_left: spec.length_left,
+            length_right: spec.length_right,
+            height_left: spec.left_width,
+            height_right: spec.right_width
         }
     }
 }

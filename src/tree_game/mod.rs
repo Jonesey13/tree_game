@@ -1,5 +1,7 @@
 pub mod tree_branch;
 pub mod tree_builder;
+pub mod player;
+pub mod position;
 use self::tree_branch::TreeBranch;
 use gg::debug::*;
 use gg::games::view_details::{ViewDetails, ViewDetails2D};
@@ -14,11 +16,14 @@ pub struct TreeGame {
     pub state: GameState,
     external_input: ExternalInput,
     pub branches: BranchData,
-    view_details: ViewDetails
+    view_details: ViewDetails,
+    pub player: player::Player
 }
 
 impl TreeGame {
-    pub fn new(setup: GameSetup) -> TreeGame{
+    pub fn new(setup: GameSetup) -> TreeGame {
+        let game_tree = tree_builder::TreeBuilder::new(10).build_tree();
+            
         TreeGame{
             input_keys: InputKeys::default(),
             setup: setup,
@@ -60,7 +65,7 @@ impl Game for TreeGame {
 
     fn get_renderables(&self) -> Vec<Box<Renderable>> {
         debug_clock_start("Render::get_renderables");
-        let output: Vec<Box<Renderable>> =
+        let mut output: Vec<Box<Renderable>> =
             self.branches.branches
             .iter()
             .map(|br| -> Box<Renderable> { Box::new(BezierRect::from(br.get_visual())) }).collect();
