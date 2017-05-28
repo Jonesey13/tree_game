@@ -37,7 +37,5 @@ impl Player {
             panic!("Could not find current branch for player with id {:?}", self.pos.get_branch_index());
         }
     }
-
-
 }
 
