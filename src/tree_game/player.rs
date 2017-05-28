@@ -1,6 +1,6 @@
 use super::position::Position;
 use rendering::BezierSubrect;
-use super::tree_branch::TreeBranch;
+use super::tree::{TreeBranch, Tree};
 use na::Vector4;
 
 pub struct Player {
@@ -18,8 +18,8 @@ impl Player {
         }
     }
 
-    pub fn get_render_parts(&self, branches: &Vec<TreeBranch>) -> Vec<BezierSubrect> {
-        let current_branch = branches.iter().find(|b| {b.get_id() == self.pos.get_branch_index() });
+    pub fn get_render_parts<T: Tree> (&self, tree: &T) -> Vec<BezierSubrect> {
+        let current_branch = tree.get_branches().values().find(|b| {b.get_id() == self.pos.get_branch_index() });
 
         if let Some(branch) = current_branch {
             let single_part = BezierSubrect {
@@ -34,7 +34,7 @@ impl Player {
             vec![single_part]
         }
         else {
-            panic!("Could not find current branch for player with id {}", self.pos.get_branch_index());
+            panic!("Could not find current branch for player with id {:?}", self.pos.get_branch_index());
         }
     }
 

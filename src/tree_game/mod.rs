@@ -1,30 +1,33 @@
-pub mod tree_branch;
-pub mod tree_builder;
+pub mod tree;
 pub mod player;
 pub mod position;
-use self::tree_branch::TreeBranch;
+use self::tree::{Tree, TreeBranch, TreeData, TreeBuilder, BranchId};
+use self::player::Player;
+use self::position::Position;
 use gg::debug::*;
 use gg::games::view_details::{ViewDetails, ViewDetails2D};
 use gg::games::GameInput;
 use gg::games::Game;
 use gg::rendering::{Renderable, BezierRect};
 use gg::input::{JoystickInput, KeyboardInput};
+use na::Vector2;
+use num::Zero;
 
 pub struct TreeGame {
     pub input_keys: InputKeys,
     pub setup: GameSetup,
     pub state: GameState,
     external_input: ExternalInput,
-    pub branches: BranchData,
+    pub tree: TreeData,
     view_details: ViewDetails,
     pub player: player::Player
 }
 
 impl TreeGame {
     pub fn new(setup: GameSetup) -> TreeGame {
-        let game_tree = tree_builder::TreeBuilder::new(10).build_tree();
+        let game_tree = TreeBuilder::new(10).build_tree();
             
-        TreeGame{
+        TreeGame {
             input_keys: InputKeys::default(),
             setup: setup,
             state: Default::default(),
@@ -35,7 +38,8 @@ impl TreeGame {
                     ..Default::default()
                 }
             ),
-            branches: tree_builder::TreeBuilder::new(10).build_tree()
+            tree: TreeBuilder::new(10).build_tree(),
+            player: Player::new(Position::new(BranchId::new(0, 0), Vector2::zero()), 0.25, 0.25)
         }
     }
 
@@ -66,9 +70,17 @@ impl Game for TreeGame {
     fn get_renderables(&self) -> Vec<Box<Renderable>> {
         debug_clock_start("Render::get_renderables");
         let mut output: Vec<Box<Renderable>> =
-            self.branches.branches
-            .iter()
-            .map(|br| -> Box<Renderable> { Box::new(BezierRect::from(br.get_visual())) }).collect();
+            self.tree.get_branches()
+            .values()
+            .map(|br| -> Box<Renderable> { Box::new(BezierRect::from(br.get_visual())) })
+            .collect();
+
+        let mut player_parts: Vec<Box<Renderable>> = self.player.get_render_parts(&self.tree)
+            .into_iter()
+            .map( |p| -> Box<Renderable> {Box::new(p)} )
+            .collect();
+        output.append(&mut player_parts);
+
         debug_clock_stop("Render::get_renderables");
         output
     }
@@ -121,9 +133,4 @@ struct ExternalInput {
 impl GameInput for ExternalInput {
     fn get_kbd_inp<'a>(&'a mut self) -> Option<&'a mut KeyboardInput> { Some(&mut self.kbd) }
     fn get_joystick_inp<'a>(&'a mut self) -> Option<&'a mut JoystickInput> { Some(&mut self.gamepad) }
-}
-
-pub struct BranchData {
-    branches: Vec<TreeBranch>,
-    current_id: u64,
 }

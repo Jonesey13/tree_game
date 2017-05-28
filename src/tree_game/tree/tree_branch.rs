@@ -3,10 +3,11 @@ use gg::rendering::{BezierQuadControl, BezierRect, BezierLogic};
 use gg::geometry::bezier_2d::BezierQuad;
 use gg::geometry::bezier_patch::BezierPatch;
 use gg::debug::*;
+use super::BranchId;
+use std::collections::HashMap;
 
 pub struct TreeBranch {
-    id: u64,
-    depth: u64,
+    id: BranchId,
     visual: VisualSpec,
     logical: LogicalSpec,
     connections: Vec<Connection>
@@ -14,8 +15,7 @@ pub struct TreeBranch {
 
 impl TreeBranch {
     pub fn new(
-        id: u64,
-        depth: u64,
+        id: BranchId,
         pos: Vector2<f64>,
         branch_type: BranchType,
         vertical_fill: f64,
@@ -26,11 +26,10 @@ impl TreeBranch {
             BranchType::BranchTop | BranchType::BranchBottom => LogicalSpec::new_branch(vertical_fill, horizontal_fill)
         };
 
-        let visual_spec = VisualSpec::new(depth, pos, branch_type, vertical_fill, horizontal_fill);
+        let visual_spec = VisualSpec::new(id.layer, pos, branch_type, vertical_fill, horizontal_fill);
 
         TreeBranch {
             id: id,
-            depth: depth,
             logical: logical_spec,
             visual: visual_spec,
             connections: Vec::new()
@@ -58,7 +57,7 @@ impl TreeBranch {
         self.logical.clone()
     }
 
-    pub fn get_id(&self) -> u64 {
+    pub fn get_id(&self) -> BranchId {
         self.id.clone()
     }
 }
@@ -110,7 +109,7 @@ pub struct VisualSpec {
 
 impl VisualSpec {
     pub fn new(
-        depth: u64,
+        depth: usize,
         pos: Vector2<f64>,
         branch_type: BranchType,
         vertical_fill: f64,
@@ -176,7 +175,7 @@ impl From<VisualSpec> for BezierRect {
 }
 
 pub struct Connection {
-    id: u64,
+    id: BranchId,
     boundary: Boundary
 }
 

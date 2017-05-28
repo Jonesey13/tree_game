@@ -1,53 +1,55 @@
 use super::tree_branch::{BranchType, TreeBranch};
-use super::BranchData;
+use super::TreeData;
+use super::BranchId;
 use na::Vector2;
+use std::collections::HashMap;
 
 pub struct TreeBuilder {
-    pub num_layers: u64,
-    current_index: u64,
+    pub num_layers: usize,
+    current_indices: Vec<usize>,
     vertical_fill: f64,
     horizontal_fill: f64,
-    branch_list: Vec<TreeBranch>
+    branches: HashMap<BranchId, TreeBranch>
 }
 
 impl TreeBuilder {
-    pub fn new(num_layers: u64) -> TreeBuilder {
+    pub fn new(num_layers: usize) -> TreeBuilder {
         TreeBuilder {
             num_layers: num_layers,
-            current_index: 0,
+            current_indices: vec![0; num_layers],
             vertical_fill: 0.5,
             horizontal_fill: 0.3,
-            branch_list: Vec::new()            
+            branches: HashMap::new()            
         }
     }
     
-    pub fn build_tree(mut self) -> BranchData {
+    pub fn build_tree(mut self) -> TreeData {
         self.build_single_branch_recursive(0, Vector2::new(-1.0, 0.0));
-        BranchData {
-            branches: self.branch_list,
-            current_id: self.current_index
+        TreeData {
+            branches: self.branches,
+            max_depth: self.num_layers - 1
         }
     }
 
-    pub fn build_single_branch_recursive(&mut self, depth: u64, left_center_pos: Vector2<f64>) {
+    pub fn build_single_branch_recursive(&mut self, depth: usize, left_center_pos: Vector2<f64>) {
+        let trunk_index = self.generate_new_index(depth);
         let trunk_branch = TreeBranch::new(
-            self.generate_new_index(),
-            depth,
+            trunk_index,
             left_center_pos,
             BranchType::Trunk,
             self.vertical_fill,
             self.horizontal_fill
         );
-        self.branch_list.push(trunk_branch);
+        self.branches.insert(trunk_index, trunk_branch);
 
 
         let trunk_width =  (1.0 - (1.0 - 2.0 * self.vertical_fill).powi((depth as i32) + 1)) / 2f64.powi((depth as i32) + 1);
         let trunk_length = self.horizontal_fill * (1.0 - self.horizontal_fill).powi(depth as i32) / 2.0;
         
         let left_top_pos = left_center_pos + Vector2::new(trunk_length * 2.0, trunk_width / 2.0);
+        let left_index = self.generate_new_index(depth);
         let branch_top = TreeBranch::new(
-            self.generate_new_index(),
-            depth,
+            left_index,
             left_top_pos,
             BranchType::BranchTop,
             self.vertical_fill,
@@ -56,15 +58,15 @@ impl TreeBuilder {
         let left_top_end_pos = left_top_pos
             + branch_top.get_visual().patch.control.eval(1.0)
             - branch_top.get_visual().patch.control.eval(0.0);
-        self.branch_list.push(branch_top);
-        if depth != self.num_layers {
+        self.branches.insert(left_index, branch_top);
+        if depth != self.num_layers - 1 {
             self.build_single_branch_recursive(depth + 1, left_top_end_pos);
         }
 
         let left_bottom_pos = left_center_pos + Vector2::new(trunk_length * 2.0, -trunk_width / 2.0);
+        let right_index = self.generate_new_index(depth);
         let branch_bottom = TreeBranch::new(
-            self.generate_new_index(),
-            depth,
+            right_index,
             left_bottom_pos,
             BranchType::BranchBottom,
             self.vertical_fill,
@@ -73,15 +75,18 @@ impl TreeBuilder {
         let left_bottom_end_pos = left_bottom_pos
             + branch_bottom.get_visual().patch.control.eval(1.0)
             - branch_bottom.get_visual().patch.control.eval(0.0);
-        self.branch_list.push(branch_bottom);
-        if depth != self.num_layers {
+        self.branches.insert(right_index, branch_bottom);
+        if depth != self.num_layers - 1 {
             self.build_single_branch_recursive(depth + 1, left_bottom_end_pos);
         }
     }
 
-    pub fn generate_new_index(&mut self) -> u64 {
-        let old_index = self.current_index;
-        self.current_index += 1;
-        old_index
+    pub fn generate_new_index(&mut self, depth: usize) -> BranchId {
+        let old_index = self.current_indices[depth];
+        self.current_indices[depth] += 1;
+        BranchId {
+            id: old_index,
+            layer: depth
+        }
     }
 }
