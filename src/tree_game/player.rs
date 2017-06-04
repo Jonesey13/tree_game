@@ -1,7 +1,9 @@
 use super::position::Position;
 use rendering::BezierSubrect;
 use super::tree::{TreeBranch, Tree};
+use super::movable::Movable;
 use na::Vector4;
+use gg::debug::*;
 
 pub struct Player {
     pos: Position,
@@ -27,7 +29,7 @@ impl Player {
                 logic: branch.get_logical().into(),
                 length: self.length,
                 height: self.height,
-                sub_pos: self.pos.get_position(),
+                sub_pos: self.pos.get_branch_position(),
                 color: Vector4::new(1.0, 1.0, 1.0, 1.0)
             };
 
@@ -39,3 +41,12 @@ impl Player {
     }
 }
 
+impl Movable for Player {
+    fn get_position(&self) -> Position {
+        self.pos
+    }
+
+    fn set_position(&mut self, new_pos: Position) {
+        self.pos = new_pos;
+    }
+}

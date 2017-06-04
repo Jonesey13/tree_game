@@ -1,9 +1,11 @@
 pub mod tree;
 pub mod player;
 pub mod position;
+pub mod movable;
 use self::tree::{Tree, TreeBranch, TreeData, TreeBuilder, BranchId};
 use self::player::Player;
 use self::position::Position;
+use self::movable::Movable;
 use gg::debug::*;
 use gg::games::view_details::{ViewDetails, ViewDetails2D};
 use gg::games::GameInput;
@@ -25,8 +27,6 @@ pub struct TreeGame {
 
 impl TreeGame {
     pub fn new(setup: GameSetup) -> TreeGame {
-        let game_tree = TreeBuilder::new(10).build_tree();
-            
         TreeGame {
             input_keys: InputKeys::default(),
             setup: setup,
@@ -38,8 +38,8 @@ impl TreeGame {
                     ..Default::default()
                 }
             ),
-            tree: TreeBuilder::new(10).build_tree(),
-            player: Player::new(Position::new(BranchId::new(0, 0), Vector2::zero()), 0.25, 0.25)
+            tree: TreeBuilder::new(8).build_tree(),
+            player: Player::new(Position::new(BranchId::new(0, 0), Vector2::zero()), 0.1, 0.1)
         }
     }
 
@@ -56,10 +56,13 @@ impl Game for TreeGame {
     }
 
     fn update_input(&mut self) {
+        self.input_keys.player_mov.x = (self.external_input.kbd.right as isize - (self.external_input.kbd.left as isize)) as f64;
+        self.input_keys.player_mov.y = (self.external_input.kbd.up as isize - (self.external_input.kbd.down as isize)) as f64;
     }
 
     fn update_logic(&mut self, t_step: f64){
         debug_clock_start("Logic::update_logic");
+        self.player.change_position(&self.tree, self.input_keys.player_mov * t_step);
         debug_clock_stop("Logic::update_logic");
     }
 
@@ -90,13 +93,17 @@ impl Game for TreeGame {
     }
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct InputKeys{
-    pub jump_angle: f64,
-    pub jump_radial: f64,
-    pub reset: bool,
-    pub pause: bool,
-    pub pause_lock: bool
+    player_mov: Vector2<f64>
+}
+
+impl Default for InputKeys {
+    fn default() -> Self {
+        InputKeys {
+            player_mov: Vector2::zero()
+        }
+    }
 }
 
 #[derive(Copy, Clone)]

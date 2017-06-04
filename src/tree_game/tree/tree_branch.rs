@@ -1,10 +1,10 @@
-use na::{Vector2, Matrix2, Vector4, Rotation2};
-use gg::rendering::{BezierQuadControl, BezierRect, BezierLogic};
+use na::{Vector2, Vector4};
+use gg::rendering::{BezierRect, BezierLogic};
 use gg::geometry::bezier_2d::BezierQuad;
 use gg::geometry::bezier_patch::BezierPatch;
+use gg::geometry::Interval;
 use gg::debug::*;
-use super::BranchId;
-use std::collections::HashMap;
+use super::{BranchId, Connection, Boundary};
 
 pub struct TreeBranch {
     id: BranchId,
@@ -22,8 +22,8 @@ impl TreeBranch {
         horizontal_fill: f64
     ) -> TreeBranch {
         let logical_spec = match branch_type {
-            BranchType::Trunk => LogicalSpec::new_trunk(vertical_fill, horizontal_fill),
-            BranchType::BranchTop | BranchType::BranchBottom => LogicalSpec::new_branch(vertical_fill, horizontal_fill)
+            BranchType::Trunk => LogicalSpec::new_logical_rect(1.0, 0.5),
+            BranchType::BranchTop | BranchType::BranchBottom => LogicalSpec::new_logical_trapezoid(0.5, 1.0, 1.0, 1.0)
         };
 
         let visual_spec = VisualSpec::new(id.layer, pos, branch_type, vertical_fill, horizontal_fill);
@@ -36,16 +36,10 @@ impl TreeBranch {
         }
     }
 
-    pub fn add_connection(first: &mut TreeBranch, f_bound: Boundary, second: &mut TreeBranch, s_bound: Boundary) {
-        let f_connect = Connection {
-            id: second.id,
-            boundary: f_bound
-        };
-        let s_connect = Connection {
-            id: first.id,
-            boundary: s_bound
-        };
-        first.connections.push(f_connect);
+    pub fn add_connection(&mut self, f_bound: Boundary, second: &mut TreeBranch, s_bound: Boundary) {
+        let f_connect = Connection::new(second.id, f_bound);
+        let s_connect = Connection::new(self.id, s_bound);
+        self.connections.push(f_connect);
         second.connections.push(s_connect);
     }
 
@@ -58,35 +52,87 @@ impl TreeBranch {
     }
 
     pub fn get_id(&self) -> BranchId {
-        self.id.clone()
+        self.id
+    }
+
+    pub fn get_connections(&self) -> &Vec<Connection> {
+        &self.connections
+    }
+
+    pub fn get_left_connections(&self) -> Vec<&Connection> {
+        self.get_connections().iter().filter_map(|c| {
+            match c.get_boundary() {
+                Boundary::Left(_, _) => Some(c),
+                _ => None
+            }
+        }).collect()
+    }
+
+    pub fn get_right_connections(&self) -> Vec<&Connection> {
+        self.get_connections().iter().filter_map(|c| {
+            match c.get_boundary() {
+                Boundary::Right(_, _) => Some(c),
+                _ => None
+            }
+        }).collect()
+    }
+
+    pub fn get_connection(&self, pos: f64, side: BranchSide) -> Option<&Connection> {
+        let possible_connections = match side {
+            BranchSide::Left => self.get_left_connections(),
+            BranchSide::Right => self.get_right_connections()
+        };
+
+        let valid_connections: Vec<&Connection> = possible_connections
+            .into_iter()
+            .filter( |c| { c.get_interval().contains(pos) })
+            .collect();
+
+        match valid_connections.len() {
+            0 => None,
+            1 => Some(valid_connections.first().unwrap()),
+            _ => panic!("Overlapping Connections on Branch with Id: {:?}", self.id)
+        }
+    }
+
+    pub fn get_logical_boundary_interval(&self, boundary: Boundary) -> Interval {
+        let scaling = match boundary {
+            Boundary::Left(_, _) => self.get_logical().left_width / 2.0,
+            Boundary::Right(_, _) => self.get_logical().right_width / 2.0
+        };
+        boundary.get_interval() * scaling
     }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct LogicalSpec {
-    left_width: f64,
-    right_width: f64,
-    length_left: f64,
-    length_right: f64
+    pub left_width: f64,
+    pub right_width: f64,
+    pub length_left: f64,
+    pub length_right: f64
 }
 
 impl LogicalSpec {
-    pub fn new_trunk(vert_fill: f64, hori_fill: f64) -> LogicalSpec {
+    pub fn new_logical_rect(width: f64, length: f64) -> LogicalSpec {
         LogicalSpec {
-            left_width: vert_fill,
-            right_width: vert_fill,
-            length_left: hori_fill / 2.0,
-            length_right: hori_fill / 2.0
+            left_width: width,
+            right_width: width,
+            length_left: length,
+            length_right: length
         }
     }
 
-    pub fn new_branch(vert_fill: f64, hori_fill: f64) -> LogicalSpec {
+    pub fn new_logical_trapezoid(left_width: f64, right_width: f64, left_length: f64, right_length: f64) -> LogicalSpec {
         LogicalSpec {
-            left_width: vert_fill / 2.0,
-            right_width: vert_fill,
-            length_left: hori_fill / 2.0,
-            length_right: hori_fill * (1.0 - 1.0 / hori_fill) / 2.0 ,
+            left_width: left_width,
+            right_width: right_width,
+            length_left: left_length,
+            length_right: right_length,
         }
+    }
+
+    pub fn get_total_length(&self) -> f64 {
+        (self.length_left + self.length_right) / 2.0 
     }
 }
 
@@ -115,13 +161,6 @@ impl VisualSpec {
         vertical_fill: f64,
         horizontal_fill: f64
     ) -> VisualSpec {
-        //debug(&format!("depth: {:?}, pos: {:?}, branch_type: {:?}, vert_fill, {:?}, hori_fill: {:?}",
-        //               depth,
-        //               pos,
-        //               branch_type,
-        //               vertical_fill,
-        //               horizontal_fill,
-        //));
         let trunk_width = (1.0 - (1.0 - 2.0 * vertical_fill).powi((depth as i32) + 1)) / 2f64.powi((depth as i32) + 1);
         let trunk_width_next =  (1.0 - vertical_fill.powi((depth as i32) + 2)) / 2f64.powi((depth as i32) + 2);
         let trunk_length = horizontal_fill * (1.0 - horizontal_fill).powi(depth as i32) / 2.0;
@@ -174,14 +213,9 @@ impl From<VisualSpec> for BezierRect {
     }
 }
 
-pub struct Connection {
-    id: BranchId,
-    boundary: Boundary
-}
-
-pub enum Boundary {
-    Left(f64, f64),
-    Right(f64, f64)
+pub enum BranchSide {
+    Left,
+    Right
 }
 
 #[derive(Copy, Clone, Debug)]
