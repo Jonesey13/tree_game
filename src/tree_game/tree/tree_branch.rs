@@ -3,8 +3,10 @@ use gg::rendering::{BezierRect, BezierLogic};
 use gg::geometry::bezier_2d::BezierQuad;
 use gg::geometry::bezier_patch::BezierPatch;
 use gg::geometry::Interval;
-use gg::debug::*;
+//use gg::debug::*;
 use super::{BranchId, Connection, Boundary};
+use tree_game::movable::Movable;
+//use tree_game::position::Position;
 
 pub struct TreeBranch {
     id: BranchId,
@@ -23,7 +25,7 @@ impl TreeBranch {
     ) -> TreeBranch {
         let logical_spec = match branch_type {
             BranchType::Trunk => LogicalSpec::new_logical_rect(1.0, 0.5),
-            BranchType::BranchTop | BranchType::BranchBottom => LogicalSpec::new_logical_trapezoid(0.5, 1.0, 1.0, 1.0)
+            BranchType::BranchTop | BranchType::BranchBottom => LogicalSpec::new_logical_trapezoid(0.5, 1.0, 1.0)
         };
 
         let visual_spec = VisualSpec::new(id.layer, pos, branch_type, vertical_fill, horizontal_fill);
@@ -102,14 +104,19 @@ impl TreeBranch {
         };
         boundary.get_interval() * scaling
     }
+
+    pub fn get_new_logical_position(&self, pos: Vector2<f64>, change_vec: Vector2<f64>) -> Vector2<f64>{
+        let mut new_logical_position = self.get_logical().shift_along_tracking_line(pos, change_vec.x);
+        new_logical_position += Vector2::new(0.0, change_vec.y);
+        new_logical_position
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct LogicalSpec {
     pub left_width: f64,
     pub right_width: f64,
-    pub length_left: f64,
-    pub length_right: f64
+    pub length: f64,
 }
 
 impl LogicalSpec {
@@ -117,32 +124,33 @@ impl LogicalSpec {
         LogicalSpec {
             left_width: width,
             right_width: width,
-            length_left: length,
-            length_right: length
+            length: length,
         }
     }
 
-    pub fn new_logical_trapezoid(left_width: f64, right_width: f64, left_length: f64, right_length: f64) -> LogicalSpec {
+    pub fn new_logical_trapezoid(left_width: f64, right_width: f64, left_length: f64) -> LogicalSpec {
         LogicalSpec {
             left_width: left_width,
             right_width: right_width,
-            length_left: left_length,
-            length_right: right_length,
+            length: left_length,
         }
     }
 
-    pub fn get_total_length(&self) -> f64 {
-        (self.length_left + self.length_right) / 2.0 
+    pub fn shift_along_tracking_line(&self, point: Vector2<f64>, shift: f64) -> Vector2<f64> {
+        let reg_horizontal = point.x / self.length;
+        let reg_vertical = point.y / ((1.0 - reg_horizontal) * self.left_width + reg_horizontal * self.right_width);
+        let shifted_reg_horizontal = shift / self.length + reg_horizontal;
+        let new_vertical = reg_vertical * ((1.0 - shifted_reg_horizontal) * self.left_width + shifted_reg_horizontal * self.right_width);
+        Vector2::new(point.x + shift, new_vertical)
     }
 }
 
 impl From<LogicalSpec> for BezierLogic {
     fn from (spec: LogicalSpec) -> Self {
         BezierLogic {
-            length_left: spec.length_left,
-            length_right: spec.length_right,
-            height_left: spec.left_width,
-            height_right: spec.right_width
+            length: spec.length,
+            width_left: spec.left_width,
+            width_right: spec.right_width
         }
     }
 }

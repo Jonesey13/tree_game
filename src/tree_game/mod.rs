@@ -123,7 +123,7 @@ pub struct GameState{
     pub survival_time: f64,
 }
 
-impl GameState{
+impl GameState {
     pub fn new() -> GameState{
         GameState{ player_death: false,
                    survival_time: 0.0,
