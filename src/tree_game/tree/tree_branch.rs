@@ -2,7 +2,7 @@ use na::{Vector2, Vector4};
 use gg::rendering::{BezierRect, BezierLogic};
 use gg::geometry::bezier_2d::BezierQuad;
 use gg::geometry::bezier_patch::BezierPatch;
-use gg::geometry::Interval;
+use gg::geometry::{Interval, interpolate, Line, line_line_intersect_2d, DualSoln};
 //use gg::debug::*;
 use super::{BranchId, Connection, Boundary};
 use tree_game::movable::Movable;
@@ -105,10 +105,63 @@ impl TreeBranch {
         boundary.get_interval() * scaling
     }
 
+    pub fn get_logical_boundary_line(&self, boundary: Boundary) -> Line {
+        let scaling = match boundary {
+            Boundary::Left(_, _) => self.get_logical().left_width / 2.0,
+            Boundary::Right(_, _) => self.get_logical().right_width / 2.0
+        };
+        let x_pos = match boundary {
+            Boundary::Left(_, _) => 0.0,
+            Boundary::Right(_, _) => self.get_logical().length
+        };
+        let boundary_interval = boundary.get_interval() * scaling;
+        Line::new(Vector2::new(x_pos, boundary_interval.get_start()),
+                  Vector2::new(x_pos, boundary_interval.get_end()))
+    }
+
     pub fn get_new_logical_position(&self, pos: Vector2<f64>, change_vec: Vector2<f64>) -> Vector2<f64>{
         let mut new_logical_position = self.get_logical().shift_along_tracking_line(pos, change_vec.x);
         new_logical_position += Vector2::new(0.0, change_vec.y);
         new_logical_position
+    }
+
+    fn get_single_boundary_intersect(&self, line: Line, connection: &Connection) -> Option<ConnectionIntersect> {
+        let boundary_line = self.get_logical_boundary_line(connection.get_boundary());
+
+        let line_line_intersect = line_line_intersect_2d(&line, &boundary_line);
+
+        let zero_one = Interval::new(0.0, 1.0);
+        
+        let intersect_time = match line_line_intersect {
+            DualSoln::None => return None,
+            DualSoln::Two(first, second) => {
+                if zero_one.contains(first) && zero_one.contains(second) {
+                    Some(first)
+                }
+                else {
+                    None
+                }
+            }
+        };
+
+        match intersect_time {
+            Some(time) => Some(
+                ConnectionIntersect{
+                    connection: connection.clone(),
+                    overlap: (line.get_point(1.0) - line.get_point(time)).x.abs()
+                }
+            ),
+            None => None
+        }
+    }
+
+    pub fn get_boundary_intersect(&self, line: Line) -> Option<ConnectionIntersect> {
+        for connection in self.get_connections() {
+            if let Some(connection_intersect) = self.get_single_boundary_intersect(line, connection) {
+                return Some(connection_intersect);
+            }
+        }
+        None
     }
 }
 
@@ -138,9 +191,9 @@ impl LogicalSpec {
 
     pub fn shift_along_tracking_line(&self, point: Vector2<f64>, shift: f64) -> Vector2<f64> {
         let reg_horizontal = point.x / self.length;
-        let reg_vertical = point.y / ((1.0 - reg_horizontal) * self.left_width + reg_horizontal * self.right_width);
+        let reg_vertical = point.y / interpolate(self.left_width, self.right_width, reg_horizontal);
         let shifted_reg_horizontal = shift / self.length + reg_horizontal;
-        let new_vertical = reg_vertical * ((1.0 - shifted_reg_horizontal) * self.left_width + shifted_reg_horizontal * self.right_width);
+        let new_vertical = reg_vertical * interpolate(self.left_width, self.right_width, shifted_reg_horizontal);
         Vector2::new(point.x + shift, new_vertical)
     }
 }
@@ -231,4 +284,9 @@ pub enum BranchType {
     Trunk,
     BranchTop,
     BranchBottom
+}
+
+pub struct ConnectionIntersect {
+    pub connection: Connection,
+    pub overlap: f64
 }

@@ -8,3 +8,4 @@ nalgebra = "*"
 num = "*"
 time = "*"
 generic_game = { path = "C:/Users/ADJ/projects/generic_game" }
+lazy_static = "*"

@@ -1,7 +1,7 @@
 use gg::geometry::Interval;
 use super::BranchId;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Connection {
     id: BranchId,
     boundary: Boundary
@@ -22,7 +22,7 @@ impl Connection {
         }
     }
 
-    pub fn get_id(&self) -> BranchId {
+    pub fn get_branch_id(&self) -> BranchId {
         self.id
     }
 

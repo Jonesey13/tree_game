@@ -2,13 +2,16 @@ pub mod tree_branch;
 pub mod tree_builder;
 pub mod branch_id;
 pub mod connection;
+pub mod branch_rect;
+pub mod branch_object;
 use std::collections::HashMap;
 
-pub use self::tree_branch::TreeBranch;
+pub use self::tree_branch::{TreeBranch, BranchSide, ConnectionIntersect};
 pub use self::branch_id::BranchId;
 pub use self::tree_builder::TreeBuilder;
-pub use self::tree_branch::BranchSide;
 pub use self::connection::{Connection, Boundary};
+pub use self::branch_object::BranchObject;
+pub use self::branch_rect::BranchRect;
 
 pub trait Tree {
     fn get_root(&self) -> &TreeBranch;
@@ -20,12 +23,12 @@ pub trait Tree {
     }
 
     fn get_matching_connection(&self, branch: BranchId, connection: &Connection) -> &Connection {
-        let matching_branch = self.get_branch(connection.get_id());
+        let matching_branch = self.get_branch(connection.get_branch_id());
 
         matching_branch
             .get_connections()
             .iter()
-            .find(|c| { c.get_id() == branch})
+            .find(|c| { c.get_branch_id() == branch})
             .expect(&format!("Could Not Find Matching Connection for Branch {:?} and Connection {:?}", branch, connection))
     }
 }

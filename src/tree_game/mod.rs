@@ -38,8 +38,8 @@ impl TreeGame {
                     ..Default::default()
                 }
             ),
-            tree: TreeBuilder::new(8).build_tree(),
-            player: Player::new(Position::new(BranchId::new(0, 0), Vector2::zero()), 0.1, 0.1)
+            tree: TreeBuilder::new(4).build_tree(),
+            player: Player::new(Position::new(BranchId::new(0, 0), Vector2::new(0.25, 0.0)), 0.5, 0.1)
         }
     }
 
@@ -78,10 +78,7 @@ impl Game for TreeGame {
             .map(|br| -> Box<Renderable> { Box::new(BezierRect::from(br.get_visual())) })
             .collect();
 
-        let mut player_parts: Vec<Box<Renderable>> = self.player.get_render_parts(&self.tree)
-            .into_iter()
-            .map( |p| -> Box<Renderable> {Box::new(p)} )
-            .collect();
+        let mut player_parts: Vec<Box<Renderable>> = self.player.get_render_parts(&self.tree);
         output.append(&mut player_parts);
 
         debug_clock_stop("Render::get_renderables");

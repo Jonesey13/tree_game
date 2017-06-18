@@ -3,6 +3,8 @@ extern crate generic_game as gg;
 extern crate nalgebra as na;
 extern crate time;
 extern crate num;
+#[macro_use]
+extern crate lazy_static;
 
 use gg::debug::*;
 use gg::{debug, rendering, input, window, handlerbasic, games, Handler};
