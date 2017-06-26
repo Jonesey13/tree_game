@@ -1,12 +1,11 @@
-use na::{Vector2, Vector4};
-use gg::rendering::{BezierRect, BezierLogic};
-use gg::geometry::bezier_2d::BezierQuad;
-use gg::geometry::bezier_patch::BezierPatch;
-use gg::geometry::{Interval, interpolate, Line, line_line_intersect_2d, DualSoln};
+use na::Vector2;
+use gg::geometry::{Interval, Line, line_line_intersect_2d, DualSoln};
 //use gg::debug::*;
 use super::{BranchId, Connection, Boundary};
-use tree_game::movable::Movable;
-//use tree_game::position::Position;
+pub mod logical;
+pub mod visual;
+pub use self::logical::*;
+pub use self::visual::*;
 
 pub struct TreeBranch {
     id: BranchId,
@@ -162,115 +161,6 @@ impl TreeBranch {
             }
         }
         None
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct LogicalSpec {
-    pub left_width: f64,
-    pub right_width: f64,
-    pub length: f64,
-}
-
-impl LogicalSpec {
-    pub fn new_logical_rect(width: f64, length: f64) -> LogicalSpec {
-        LogicalSpec {
-            left_width: width,
-            right_width: width,
-            length: length,
-        }
-    }
-
-    pub fn new_logical_trapezoid(left_width: f64, right_width: f64, left_length: f64) -> LogicalSpec {
-        LogicalSpec {
-            left_width: left_width,
-            right_width: right_width,
-            length: left_length,
-        }
-    }
-
-    pub fn shift_along_tracking_line(&self, point: Vector2<f64>, shift: f64) -> Vector2<f64> {
-        let reg_horizontal = point.x / self.length;
-        let reg_vertical = point.y / interpolate(self.left_width, self.right_width, reg_horizontal);
-        let shifted_reg_horizontal = shift / self.length + reg_horizontal;
-        let new_vertical = reg_vertical * interpolate(self.left_width, self.right_width, shifted_reg_horizontal);
-        Vector2::new(point.x + shift, new_vertical)
-    }
-}
-
-impl From<LogicalSpec> for BezierLogic {
-    fn from (spec: LogicalSpec) -> Self {
-        BezierLogic {
-            length: spec.length,
-            width_left: spec.left_width,
-            width_right: spec.right_width
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct VisualSpec {
-    pub patch: BezierPatch,
-    pub color: Vector4<f64>
-}
-
-impl VisualSpec {
-    pub fn new(
-        depth: usize,
-        pos: Vector2<f64>,
-        branch_type: BranchType,
-        vertical_fill: f64,
-        horizontal_fill: f64
-    ) -> VisualSpec {
-        let trunk_width = (1.0 - (1.0 - 2.0 * vertical_fill).powi((depth as i32) + 1)) / 2f64.powi((depth as i32) + 1);
-        let trunk_width_next =  (1.0 - vertical_fill.powi((depth as i32) + 2)) / 2f64.powi((depth as i32) + 2);
-        let trunk_length = horizontal_fill * (1.0 - horizontal_fill).powi(depth as i32) / 2.0;
-        let vert_dir = Vector2::<f64>::new(0.0, 1.0);
-        let width = match branch_type {
-            BranchType::Trunk => trunk_width * 2.0,
-            BranchType::BranchTop | BranchType::BranchBottom => trunk_width
-        };
-        let control = match branch_type {
-            BranchType::Trunk => BezierQuad::new(
-                Vector2::new(0.0, 0.0),
-                Vector2::new(trunk_length, 0.0),
-                Vector2::new(trunk_length * 2.0, 0.0)
-            ),
-            BranchType::BranchTop => BezierQuad::new(
-                Vector2::new(0.0, 0.0),
-                Vector2::new(trunk_length, trunk_width / 4.0),
-                Vector2::new(trunk_length * 2.0, trunk_width / 2.0)
-            ),
-            BranchType::BranchBottom => BezierQuad::new(
-                Vector2::new(0.0, 0.0),
-                Vector2::new(trunk_length, -trunk_width / 4.0),
-                Vector2::new(trunk_length * 2.0, -trunk_width / 2.0)
-            )
-        };
-
-        let patch = BezierPatch {
-            control: control,
-            vert_dir: vert_dir,
-            width: width,
-            pos: pos
-        };
-
-        VisualSpec {
-            patch: patch,
-            color: Vector4::new(0.1, 0.1, 1.0, 1.0),
-        }
-    }
-}
-
-impl From<VisualSpec> for BezierRect {
-    fn from (spec: VisualSpec) -> Self {
-        BezierRect {
-            control: spec.patch.control.into(),
-            vert_dir: spec.patch.vert_dir,
-            width: spec.patch.width,
-            pos: spec.patch.pos,
-            color: spec.color
-        }
     }
 }
 
